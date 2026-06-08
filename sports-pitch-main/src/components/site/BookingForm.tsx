@@ -61,6 +61,7 @@ export function BookingForm() {
 
   const fetchBookedTimeSlots = async () => {
     try {
+      console.log('Fetching booked time slots from:', API_BASE_URL);
       const response = await fetch(API_BASE_URL);
       const data = await response.json();
       if (data.success) {
@@ -87,6 +88,8 @@ export function BookingForm() {
       }
     } catch (error) {
       console.error('Error fetching booked time slots:', error);
+      console.error('API URL being used:', API_BASE_URL);
+      console.error('User agent:', navigator.userAgent);
     }
   };
 
@@ -112,6 +115,8 @@ export function BookingForm() {
     try {
       // Call backend API
       console.log("Submitting booking to backend API...");
+      console.log("API URL:", API_BASE_URL);
+      console.log("User agent:", navigator.userAgent);
       const response = await fetch(API_BASE_URL, {
         method: 'POST',
         headers: {
