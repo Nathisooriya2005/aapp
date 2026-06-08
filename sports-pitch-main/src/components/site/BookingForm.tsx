@@ -182,12 +182,12 @@ export function BookingForm() {
         console.log("SSR environment - skipping local store save, booking saved via API only");
       }
 
-      // Send WhatsApp message to customer
-      const message = `hyy ur spors have been booked succefylly`;
+      // Send WhatsApp message to sports pitch owner
+      const message = `I would like to book your sports pitch!!\n\nCustomer Details:\nName: ${formData.name}\nPhone: ${formData.phone}\nGame: ${formData.game}\nDate: ${formData.date}\nTime: ${formData.timeSlot}\nPlayers: ${formData.players}`;
 
       console.log("WhatsApp message:", message);
       
-      const phoneNumber = formData.phone.replace(/\D/g, ''); // Remove non-digits from phone number
+      const phoneNumber = "9865750184"; // Sports pitch owner's phone number
       const whatsappUrl = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
       
       console.log("WhatsApp URL:", whatsappUrl);
