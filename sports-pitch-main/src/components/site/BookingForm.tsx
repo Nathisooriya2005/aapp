@@ -35,6 +35,7 @@ export function BookingForm() {
     players: ""
   });
   const [bookedTimeSlots, setBookedTimeSlots] = useState<string[]>([]);
+  const [approvedTimeSlots, setApprovedTimeSlots] = useState<string[]>([]);
 
   const getBatch = (timeSlot: string): TimeBatch => {
     const slotData = TIME_SLOTS.find(s => s.slot === timeSlot);
@@ -69,7 +70,18 @@ export function BookingForm() {
           )
           .map((booking: any) => booking.time);
         setBookedTimeSlots(bookedSlots);
+        
+        const approvedSlots = data.bookings
+          .filter((booking: any) =>
+            booking.sport === formData.game &&
+            booking.date === formData.date &&
+            booking.status === 'Approved'
+          )
+          .map((booking: any) => booking.time);
+        setApprovedTimeSlots(approvedSlots);
+        
         console.log('Booked time slots:', bookedSlots);
+        console.log('Approved time slots:', approvedSlots);
       }
     } catch (error) {
       console.error('Error fetching booked time slots:', error);
@@ -315,6 +327,7 @@ export function BookingForm() {
               <SelectContent>
                 {TIME_SLOTS.map((item) => {
                   const isBooked = bookedTimeSlots.includes(item.slot);
+                  const isApproved = approvedTimeSlots.includes(item.slot);
                   return (
                     <SelectItem 
                       key={item.slot} 
@@ -322,10 +335,11 @@ export function BookingForm() {
                       disabled={isBooked}
                     >
                       <div className="flex items-center justify-between w-full">
-                        <span style={isBooked ? { color: 'red', fontWeight: 'bold' } : {}}>{item.slot}</span>
-                        <span style={isBooked ? { color: 'red', fontWeight: 'bold', fontSize: '12px', marginLeft: '8px' } : { fontSize: '12px', marginLeft: '8px', color: '#6b7280' }}>
+                        <span style={isApproved ? { color: 'red', fontWeight: 'bold' } : isBooked ? { color: 'orange', fontWeight: 'bold' } : {}}>{item.slot}</span>
+                        <span style={isApproved ? { color: 'red', fontWeight: 'bold', fontSize: '12px', marginLeft: '8px' } : isBooked ? { color: 'orange', fontWeight: 'bold', fontSize: '12px', marginLeft: '8px' } : { fontSize: '12px', marginLeft: '8px', color: '#6b7280' }}>
                           ({item.batch.charAt(0).toUpperCase() + item.batch.slice(1)})
-                          {isBooked && " - Booked"}
+                          {isApproved && " - Locked"}
+                          {isBooked && !isApproved && " - Pending"}
                         </span>
                       </div>
                     </SelectItem>
