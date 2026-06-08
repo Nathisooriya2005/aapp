@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 
-const API_BASE_URL = 'http://localhost:3001/api/bookings';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api/bookings';
 
 // API Service
 const api = {

@@ -7,6 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { addBooking } from "@/lib/booking-store";
 import type { TimeBatch } from "@/lib/booking-store";
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api/bookings';
+
 const GAMES = ["Cricket", "Badminton", "Karate", "Kabaddi"] as const;
 const TIME_SLOTS = [
   { slot: "8-9", batch: "morning" },
@@ -59,7 +61,7 @@ export function BookingForm() {
 
   const fetchBookedTimeSlots = async () => {
     try {
-      const response = await fetch('http://localhost:3001/api/bookings');
+      const response = await fetch(API_BASE_URL);
       const data = await response.json();
       if (data.success) {
         const bookedSlots = data.bookings
@@ -110,7 +112,7 @@ export function BookingForm() {
     try {
       // Call backend API
       console.log("Submitting booking to backend API...");
-      const response = await fetch('http://localhost:3001/api/bookings', {
+      const response = await fetch(API_BASE_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
