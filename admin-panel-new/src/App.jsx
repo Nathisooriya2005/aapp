@@ -77,6 +77,14 @@ const api = {
     });
     return response.json();
   },
+  updatePaymentAmount: async (customerId, amount, month, year) => {
+    const response = await fetch(`${PAYMENT_API_URL}/payment/update-amount`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ customerId, amount, month, year }),
+    });
+    return response.json();
+  },
 };
 
 // Login Component
@@ -607,6 +615,17 @@ function PaymentManagement() {
     }
   };
 
+  const handleUpdateAmount = async (customerId, amount) => {
+    try {
+      const response = await api.updatePaymentAmount(customerId, amount, selectedMonth, selectedYear);
+      if (response.success) {
+        fetchCustomers();
+      }
+    } catch (error) {
+      console.error('Error updating amount');
+    }
+  };
+
   const handleSendReminder = async (customerId) => {
     try {
       const response = await api.sendReminder(customerId, selectedMonth, selectedYear);
@@ -849,6 +868,7 @@ function PaymentManagement() {
                   <th style={{ padding: '15px', textAlign: 'left', fontWeight: '600' }}>Name</th>
                   <th style={{ padding: '15px', textAlign: 'left', fontWeight: '600' }}>Phone</th>
                   <th style={{ padding: '15px', textAlign: 'left', fontWeight: '600' }}>Sports</th>
+                  <th style={{ padding: '15px', textAlign: 'left', fontWeight: '600' }}>Amount</th>
                   <th style={{ padding: '15px', textAlign: 'left', fontWeight: '600' }}>Status</th>
                   <th style={{ padding: '15px', textAlign: 'left', fontWeight: '600' }}>Actions</th>
                 </tr>
@@ -859,6 +879,20 @@ function PaymentManagement() {
                     <td style={{ padding: '15px', fontWeight: customer.paymentStatus === 'Unpaid' ? '600' : 'normal', color: customer.paymentStatus === 'Unpaid' ? '#dc3545' : 'inherit' }}>{customer.name}</td>
                     <td style={{ padding: '15px' }}>{customer.phone}</td>
                     <td style={{ padding: '15px' }}>{customer.sports.join(', ')}</td>
+                    <td style={{ padding: '15px' }}>
+                      <input
+                        type="number"
+                        defaultValue={customer.amount || 500}
+                        onBlur={(e) => handleUpdateAmount(customer._id, e.target.value)}
+                        style={{
+                          width: '80px',
+                          padding: '6px',
+                          border: '1px solid #ddd',
+                          borderRadius: '4px',
+                          fontSize: '14px'
+                        }}
+                      />
+                    </td>
                     <td style={{ padding: '15px' }}>
                       <button
                         onClick={() => handleTogglePayment(customer._id, customer.paymentStatus)}

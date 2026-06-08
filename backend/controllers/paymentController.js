@@ -33,7 +33,8 @@ exports.getCustomersWithPayments = async (req, res) => {
         sports: customer.sports,
         paymentStatus: payment ? payment.status : 'Unpaid',
         paymentId: payment ? payment._id : null,
-        reminderSent: payment ? payment.reminderSent : false
+        reminderSent: payment ? payment.reminderSent : false,
+        amount: payment ? payment.amount : 500
       };
     });
 
@@ -270,6 +271,56 @@ exports.deleteCustomer = async (req, res) => {
     });
   } catch (error) {
     console.error('Error deleting customer:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+};
+
+// Update payment amount
+exports.updatePaymentAmount = async (req, res) => {
+  try {
+    const { customerId, amount, month, year } = req.body;
+
+    if (!customerId || !amount) {
+      return res.status(400).json({
+        success: false,
+        error: 'Customer ID and amount are required'
+      });
+    }
+
+    const currentDate = new Date();
+    const targetMonth = month ? parseInt(month) : currentDate.getMonth() + 1;
+    const targetYear = year ? parseInt(year) : currentDate.getFullYear();
+
+    // Find or create payment record
+    let payment = await Payment.findOne({
+      customerId,
+      month: targetMonth,
+      year: targetYear
+    });
+
+    if (payment) {
+      payment.amount = parseFloat(amount);
+      payment.updatedAt = new Date();
+      await payment.save();
+    } else {
+      payment = await Payment.create({
+        customerId,
+        month: targetMonth,
+        year: targetYear,
+        status: 'Unpaid',
+        amount: parseFloat(amount)
+      });
+    }
+
+    res.json({
+      success: true,
+      payment
+    });
+  } catch (error) {
+    console.error('Error updating payment amount:', error);
     res.status(500).json({
       success: false,
       error: error.message
