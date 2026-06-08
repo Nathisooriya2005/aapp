@@ -71,7 +71,7 @@ function Login() {
         `}
       </style>
       
-      <div style={{
+      <div className="admin-login-form" style={{
         backgroundColor: 'rgba(255, 255, 255, 0.95)',
         padding: '50px',
         borderRadius: '20px',
@@ -115,6 +115,7 @@ function Login() {
               type="text"
               value={credentials.username}
               onChange={(e) => setCredentials({ ...credentials, username: e.target.value })}
+              className="admin-input"
               style={{
                 width: '100%',
                 padding: '14px',
@@ -138,6 +139,7 @@ function Login() {
               type="password"
               value={credentials.password}
               onChange={(e) => setCredentials({ ...credentials, password: e.target.value })}
+              className="admin-input"
               style={{
                 width: '100%',
                 padding: '14px',
@@ -255,17 +257,18 @@ function Dashboard() {
     navigate('/login');
   };
 
-  if (loading) return <div style={{ padding: '40px', textAlign: 'center' }}>Loading...</div>;
+  if (loading) return <div className="admin-container" style={{ padding: '40px', textAlign: 'center' }}>Loading...</div>;
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#f5f5f5' }}>
+    <div className="admin-container" style={{ minHeight: '100vh', backgroundColor: '#f5f5f5' }}>
       <Header onLogout={handleLogout} />
       <Nav navigate={navigate} currentPage="dashboard" />
-      <main style={{ padding: '40px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
+      <main className="admin-container" style={{ padding: '40px' }}>
+        <div className="admin-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
           <h2 style={{ margin: 0, color: '#333' }}>Dashboard Overview</h2>
           <button
             onClick={downloadToGoogleSheets}
+            className="admin-button"
             style={{
               padding: '10px 20px',
               backgroundColor: '#28a745',
@@ -284,7 +287,7 @@ function Dashboard() {
             📥 Download to Google Sheets
           </button>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px' }}>
+        <div className="admin-stats" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px' }}>
           <StatCard title="Total Bookings" value={stats.totalBookings} color="#007bff" />
           <StatCard title="Pending Bookings" value={stats.pendingBookings} color="#ffc107" />
           <StatCard title="Approved Bookings" value={stats.approvedBookings} color="#28a745" />
@@ -392,17 +395,18 @@ function BookingManagement() {
     navigate('/login');
   };
 
-  if (loading) return <div style={{ padding: '40px', textAlign: 'center' }}>Loading...</div>;
+  if (loading) return <div className="admin-container" style={{ padding: '40px', textAlign: 'center' }}>Loading...</div>;
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#f5f5f5' }}>
+    <div className="admin-container" style={{ minHeight: '100vh', backgroundColor: '#f5f5f5' }}>
       <Header onLogout={handleLogout} />
       <Nav navigate={navigate} currentPage="bookings" />
-      <main style={{ padding: '40px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
+      <main className="admin-container" style={{ padding: '40px' }}>
+        <div className="admin-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
           <h2 style={{ margin: 0, color: '#333' }}>Booking Management</h2>
           <button
             onClick={downloadBookingsToGoogleSheets}
+            className="admin-button"
             style={{
               padding: '10px 20px',
               backgroundColor: '#007bff',
@@ -422,12 +426,12 @@ function BookingManagement() {
           </button>
         </div>
         {bookings.length === 0 ? (
-          <div style={{ backgroundColor: 'white', padding: '40px', borderRadius: '8px', textAlign: 'center', color: '#666' }}>
+          <div className="admin-card" style={{ backgroundColor: 'white', padding: '40px', borderRadius: '8px', textAlign: 'center', color: '#666' }}>
             No bookings found
           </div>
         ) : (
-          <div style={{ backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 2px 10px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <div className="admin-table-container" style={{ backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 2px 10px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
+            <table className="admin-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ backgroundColor: '#007bff', color: 'white' }}>
                   <th style={{ padding: '15px', textAlign: 'left', fontWeight: '600' }}>Customer Name</th>
@@ -608,17 +612,18 @@ function PaymentManagement() {
     navigate('/login');
   };
 
-  if (loading) return <div style={{ padding: '40px', textAlign: 'center' }}>Loading...</div>;
+  if (loading) return <div className="admin-container" style={{ padding: '40px', textAlign: 'center' }}>Loading...</div>;
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#f5f5f5' }}>
+    <div className="admin-container" style={{ minHeight: '100vh', backgroundColor: '#f5f5f5' }}>
       <Header onLogout={handleLogout} />
       <Nav navigate={navigate} currentPage="payments" />
-      <main style={{ padding: '40px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
+      <main className="admin-container" style={{ padding: '40px' }}>
+        <div className="admin-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
           <h2 style={{ margin: 0, color: '#333' }}>Payment Management</h2>
           <button
             onClick={downloadPaymentsToGoogleSheets}
+            className="admin-button"
             style={{
               padding: '10px 20px',
               backgroundColor: '#ffc107',
@@ -638,12 +643,12 @@ function PaymentManagement() {
           </button>
         </div>
         {bookings.length === 0 ? (
-          <div style={{ backgroundColor: 'white', padding: '40px', borderRadius: '8px', textAlign: 'center', color: '#666' }}>
+          <div className="admin-card" style={{ backgroundColor: 'white', padding: '40px', borderRadius: '8px', textAlign: 'center', color: '#666' }}>
             No bookings found
           </div>
         ) : (
-          <div style={{ backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 2px 10px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <div className="admin-table-container" style={{ backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 2px 10px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
+            <table className="admin-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ backgroundColor: '#007bff', color: 'white' }}>
                   <th style={{ padding: '15px', textAlign: 'left', fontWeight: '600' }}>Customer Name</th>
@@ -797,7 +802,7 @@ function Nav({ navigate, currentPage }) {
   };
 
   return (
-    <nav style={{ 
+    <nav className="admin-nav" style={{ 
       backgroundColor: 'white', 
       padding: '25px 40px', 
       borderBottom: '2px solid #e9ecef',
@@ -806,6 +811,7 @@ function Nav({ navigate, currentPage }) {
       <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
         <button
           onClick={() => navigate('/dashboard')}
+          className="admin-nav-button"
           style={getButtonStyle('dashboard')}
           onMouseEnter={(e) => {
             if (currentPage !== 'dashboard') {
@@ -825,6 +831,7 @@ function Nav({ navigate, currentPage }) {
         </button>
         <button
           onClick={() => navigate('/bookings')}
+          className="admin-nav-button"
           style={getButtonStyle('bookings')}
           onMouseEnter={(e) => {
             if (currentPage !== 'bookings') {
@@ -844,6 +851,7 @@ function Nav({ navigate, currentPage }) {
         </button>
         <button
           onClick={() => navigate('/payments')}
+          className="admin-nav-button"
           style={getButtonStyle('payments')}
           onMouseEnter={(e) => {
             if (currentPage !== 'payments') {
