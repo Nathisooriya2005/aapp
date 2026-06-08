@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api/bookings';
+const PAYMENT_API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api/payment';
 
 // API Service
 const api = {
@@ -28,6 +29,50 @@ const api = {
   },
   deleteBooking: async (id) => {
     const response = await fetch(`${API_BASE_URL}/${id}`, {
+      method: 'DELETE',
+    });
+    return response.json();
+  },
+  // Payment API
+  getCustomersWithPayments: async (filter, month, year) => {
+    const url = `${PAYMENT_API_URL}/customers?filter=${filter || ''}&month=${month || ''}&year=${year || ''}`;
+    const response = await fetch(url);
+    return response.json();
+  },
+  createOrUpdateCustomer: async (customerData) => {
+    const response = await fetch(`${PAYMENT_API_URL}/customer`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(customerData),
+    });
+    return response.json();
+  },
+  updatePaymentStatus: async (customerId, status, month, year) => {
+    const response = await fetch(`${PAYMENT_API_URL}/payment/update-status`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ customerId, status, month, year }),
+    });
+    return response.json();
+  },
+  createMonthlyRecords: async (month, year) => {
+    const response = await fetch(`${PAYMENT_API_URL}/payment/create-monthly-records`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ month, year }),
+    });
+    return response.json();
+  },
+  sendReminder: async (customerId, month, year) => {
+    const response = await fetch(`${PAYMENT_API_URL}/payment/send-reminder`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ customerId, month, year }),
+    });
+    return response.json();
+  },
+  deleteCustomer: async (customerId) => {
+    const response = await fetch(`${PAYMENT_API_URL}/customer/${customerId}`, {
       method: 'DELETE',
     });
     return response.json();
@@ -522,90 +567,104 @@ function BookingManagement() {
 
 // Payment Management Component
 function PaymentManagement() {
-  const [bookings, setBookings] = useState([]);
+  const [customers, setCustomers] = useState([]);
+  const [stats, setStats] = useState({ totalCustomers: 0, totalPaid: 0, totalUnpaid: 0, month: 0, year: 0 });
   const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState('');
+  const [showAddCustomer, setShowAddCustomer] = useState(false);
+  const [newCustomer, setNewCustomer] = useState({ name: '', phone: '', sports: [] });
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const navigate = useNavigate();
 
   useEffect(() => {
-    fetchBookings();
-  }, []);
+    fetchCustomers();
+  }, [filter, selectedMonth, selectedYear]);
 
-  const fetchBookings = async () => {
+  const fetchCustomers = async () => {
     try {
-      const response = await api.getAllBookings();
-      if (response.success) setBookings(response.bookings);
+      const response = await api.getCustomersWithPayments(filter, selectedMonth, selectedYear);
+      if (response.success) {
+        setCustomers(response.customers);
+        setStats(response.stats);
+      }
     } catch (error) {
-      console.error('Error fetching bookings:', error);
+      console.error('Error fetching customers:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleMarkPaid = async (id) => {
+  const handleTogglePayment = async (customerId, currentStatus) => {
+    const newStatus = currentStatus === 'Paid' ? 'Unpaid' : 'Paid';
     try {
-      const response = await api.updatePaymentStatus(id, 'Paid');
+      const response = await api.updatePaymentStatus(customerId, newStatus, selectedMonth, selectedYear);
       if (response.success) {
-        fetchBookings();
+        fetchCustomers();
       }
     } catch (error) {
       console.error('Error updating payment status');
     }
   };
 
-  const handleMarkUnpaid = async (id) => {
+  const handleSendReminder = async (customerId) => {
     try {
-      const response = await api.updatePaymentStatus(id, 'Unpaid');
-      if (response.success) {
-        fetchBookings();
+      const response = await api.sendReminder(customerId, selectedMonth, selectedYear);
+      if (response.success && response.whatsappUrl) {
+        window.open(response.whatsappUrl, '_blank');
+        fetchCustomers();
       }
     } catch (error) {
-      console.error('Error updating payment status');
+      console.error('Error sending reminder');
     }
   };
 
-  const handleUpdateAmount = async (id, amount) => {
+  const handleAddCustomer = async (e) => {
+    e.preventDefault();
     try {
-      const response = await fetch(`http://localhost:3001/api/bookings/${id}/amount`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ amount: parseFloat(amount) }),
-      });
-      const result = await response.json();
-      if (result.success) {
-        fetchBookings();
+      const response = await api.createOrUpdateCustomer(newCustomer);
+      if (response.success) {
+        setShowAddCustomer(false);
+        setNewCustomer({ name: '', phone: '', sports: [] });
+        fetchCustomers();
       }
     } catch (error) {
-      alert('Error updating amount');
+      console.error('Error adding customer');
     }
   };
 
-  const downloadPaymentsToGoogleSheets = async () => {
+  const handleCreateMonthlyRecords = async () => {
     try {
-      const response = await api.getAllBookings();
+      const response = await api.createMonthlyRecords(selectedMonth, selectedYear);
       if (response.success) {
-        const bookings = response.bookings;
-        
-        // Create CSV content
-        const headers = ['Customer Name', 'Sport', 'Amount', 'Payment Status'];
-        const rows = bookings.map(b => [
-          b.name,
-          b.sport,
-          b.amount || 500,
-          b.paymentStatus
-        ]);
-        
-        const csvContent = [headers, ...rows].map(row => row.join(',')).join('\n');
-        const blob = new Blob([csvContent], { type: 'text/csv' });
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'payments_data.csv';
-        a.click();
-        window.URL.revokeObjectURL(url);
+        alert(response.message);
+        fetchCustomers();
       }
     } catch (error) {
-      console.error('Error downloading payments:', error);
+      console.error('Error creating monthly records');
     }
+  };
+
+  const handleDeleteCustomer = async (customerId) => {
+    if (window.confirm('Are you sure you want to delete this customer?')) {
+      try {
+        const response = await api.deleteCustomer(customerId);
+        if (response.success) {
+          fetchCustomers();
+        }
+      } catch (error) {
+        console.error('Error deleting customer');
+      }
+    }
+  };
+
+  const handleSportToggle = (sport) => {
+    setNewCustomer(prev => ({
+      ...prev,
+      sports: prev.sports.includes(sport)
+        ? prev.sports.filter(s => s !== sport)
+        : [...prev.sports, sport]
+    }));
   };
 
   const handleLogout = () => {
@@ -620,79 +679,226 @@ function PaymentManagement() {
       <Header onLogout={handleLogout} />
       <Nav navigate={navigate} currentPage="payments" />
       <main className="admin-container" style={{ padding: '40px' }}>
-        <div className="admin-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
-          <h2 style={{ margin: 0, color: '#333' }}>Payment Management</h2>
-          <button
-            onClick={downloadPaymentsToGoogleSheets}
-            className="admin-button"
-            style={{
-              padding: '10px 20px',
-              backgroundColor: '#ffc107',
-              color: 'white',
-              border: 'none',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              fontWeight: '600',
-              fontSize: '14px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              boxShadow: '0 2px 8px rgba(255, 193, 7, 0.3)'
-            }}
-          >
-            📥 Download to Google Sheets
-          </button>
+        <div className="admin-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', flexWrap: 'wrap', gap: '15px' }}>
+          <h2 style={{ margin: 0, color: '#333' }}>Customer Payment Management</h2>
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+            <button
+              onClick={() => setShowAddCustomer(true)}
+              className="admin-button"
+              style={{
+                padding: '10px 20px',
+                backgroundColor: '#28a745',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontWeight: '600',
+                fontSize: '14px'
+              }}
+            >
+              + Add Customer
+            </button>
+            <button
+              onClick={handleCreateMonthlyRecords}
+              className="admin-button"
+              style={{
+                padding: '10px 20px',
+                backgroundColor: '#17a2b8',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontWeight: '600',
+                fontSize: '14px'
+              }}
+            >
+              Create Monthly Records
+            </button>
+          </div>
         </div>
-        {bookings.length === 0 ? (
+
+        {/* Dashboard Stats */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', marginBottom: '30px' }}>
+          <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
+            <h3 style={{ margin: '0 0 10px 0', color: '#666', fontSize: '14px' }}>Total Customers</h3>
+            <p style={{ margin: 0, fontSize: '28px', fontWeight: '700', color: '#007bff' }}>{stats.totalCustomers}</p>
+          </div>
+          <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
+            <h3 style={{ margin: '0 0 10px 0', color: '#666', fontSize: '14px' }}>Paid This Month</h3>
+            <p style={{ margin: 0, fontSize: '28px', fontWeight: '700', color: '#28a745' }}>{stats.totalPaid}</p>
+          </div>
+          <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
+            <h3 style={{ margin: '0 0 10px 0', color: '#666', fontSize: '14px' }}>Unpaid This Month</h3>
+            <p style={{ margin: 0, fontSize: '28px', fontWeight: '700', color: '#dc3545' }}>{stats.totalUnpaid}</p>
+          </div>
+        </div>
+
+        {/* Filters */}
+        <div style={{ backgroundColor: 'white', padding: '20px', borderRadius: '8px', marginBottom: '20px', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
+          <div style={{ display: 'flex', gap: '15px', alignItems: 'center', flexWrap: 'wrap' }}>
+            <div>
+              <label style={{ marginRight: '10px', fontWeight: '600', color: '#333' }}>Month:</label>
+              <select
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
+                style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ddd', fontSize: '14px' }}
+              >
+                {Array.from({ length: 12 }, (_, i) => (
+                  <option key={i + 1} value={i + 1}>{new Date(0, i).toLocaleString('default', { month: 'long' })}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label style={{ marginRight: '10px', fontWeight: '600', color: '#333' }}>Year:</label>
+              <select
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+                style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ddd', fontSize: '14px' }}
+              >
+                <option value={2024}>2024</option>
+                <option value={2025}>2025</option>
+                <option value={2026}>2026</option>
+              </select>
+            </div>
+            <div>
+              <label style={{ marginRight: '10px', fontWeight: '600', color: '#333' }}>Filter:</label>
+              <select
+                value={filter}
+                onChange={(e) => setFilter(e.target.value)}
+                style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ddd', fontSize: '14px' }}
+              >
+                <option value="">All</option>
+                <option value="Paid">Paid</option>
+                <option value="Unpaid">Unpaid</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Add Customer Modal */}
+        {showAddCustomer && (
+          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
+            <div style={{ backgroundColor: 'white', padding: '30px', borderRadius: '8px', width: '100%', maxWidth: '500px', maxHeight: '90vh', overflowY: 'auto' }}>
+              <h3 style={{ marginTop: 0, marginBottom: '20px' }}>Add New Customer</h3>
+              <form onSubmit={handleAddCustomer}>
+                <div style={{ marginBottom: '15px' }}>
+                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: '600', color: '#333' }}>Name:</label>
+                  <input
+                    type="text"
+                    value={newCustomer.name}
+                    onChange={(e) => setNewCustomer({ ...newCustomer, name: e.target.value })}
+                    required
+                    style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid #ddd', fontSize: '14px' }}
+                  />
+                </div>
+                <div style={{ marginBottom: '15px' }}>
+                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: '600', color: '#333' }}>Phone:</label>
+                  <input
+                    type="text"
+                    value={newCustomer.phone}
+                    onChange={(e) => setNewCustomer({ ...newCustomer, phone: e.target.value })}
+                    required
+                    style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid #ddd', fontSize: '14px' }}
+                  />
+                </div>
+                <div style={{ marginBottom: '15px' }}>
+                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: '600', color: '#333' }}>Sports:</label>
+                  <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                    {['Badminton', 'Karate', 'Cricket', 'Kabaddi'].map(sport => (
+                      <label key={sport} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                        <input
+                          type="checkbox"
+                          checked={newCustomer.sports.includes(sport)}
+                          onChange={() => handleSportToggle(sport)}
+                        />
+                        {sport}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                  <button
+                    type="button"
+                    onClick={() => setShowAddCustomer(false)}
+                    style={{ padding: '10px 20px', backgroundColor: '#6c757d', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: '600' }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    style={{ padding: '10px 20px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: '600' }}
+                  >
+                    Add Customer
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Customer Table */}
+        {customers.length === 0 ? (
           <div className="admin-card" style={{ backgroundColor: 'white', padding: '40px', borderRadius: '8px', textAlign: 'center', color: '#666' }}>
-            No bookings found
+            No customers found
           </div>
         ) : (
           <div className="admin-table-container" style={{ backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 2px 10px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
             <table className="admin-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ backgroundColor: '#007bff', color: 'white' }}>
-                  <th style={{ padding: '15px', textAlign: 'left', fontWeight: '600' }}>Customer Name</th>
-                  <th style={{ padding: '15px', textAlign: 'left', fontWeight: '600' }}>Sport</th>
-                  <th style={{ padding: '15px', textAlign: 'left', fontWeight: '600' }}>Amount</th>
-                  <th style={{ padding: '15px', textAlign: 'left', fontWeight: '600' }}>Payment Status</th>
+                  <th style={{ padding: '15px', textAlign: 'left', fontWeight: '600' }}>Name</th>
+                  <th style={{ padding: '15px', textAlign: 'left', fontWeight: '600' }}>Phone</th>
+                  <th style={{ padding: '15px', textAlign: 'left', fontWeight: '600' }}>Sports</th>
+                  <th style={{ padding: '15px', textAlign: 'left', fontWeight: '600' }}>Status</th>
                   <th style={{ padding: '15px', textAlign: 'left', fontWeight: '600' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {bookings.map((booking) => (
-                  <tr key={booking._id} style={{ borderBottom: '1px solid #eee' }}>
-                    <td style={{ padding: '15px' }}>{booking.name}</td>
-                    <td style={{ padding: '15px' }}>{booking.sport}</td>
+                {customers.map((customer) => (
+                  <tr key={customer._id} style={{ borderBottom: '1px solid #eee', backgroundColor: customer.paymentStatus === 'Unpaid' ? '#fff5f5' : 'white' }}>
+                    <td style={{ padding: '15px', fontWeight: customer.paymentStatus === 'Unpaid' ? '600' : 'normal', color: customer.paymentStatus === 'Unpaid' ? '#dc3545' : 'inherit' }}>{customer.name}</td>
+                    <td style={{ padding: '15px' }}>{customer.phone}</td>
+                    <td style={{ padding: '15px' }}>{customer.sports.join(', ')}</td>
                     <td style={{ padding: '15px' }}>
-                      <input
-                        type="number"
-                        defaultValue={booking.amount || 500}
-                        onBlur={(e) => handleUpdateAmount(booking._id, e.target.value)}
+                      <button
+                        onClick={() => handleTogglePayment(customer._id, customer.paymentStatus)}
                         style={{
-                          width: '80px',
-                          padding: '6px',
-                          border: '1px solid #ddd',
-                          borderRadius: '4px',
-                          fontSize: '14px'
+                          backgroundColor: customer.paymentStatus === 'Paid' ? '#28a745' : '#dc3545',
+                          color: 'white',
+                          border: 'none',
+                          padding: '6px 12px',
+                          borderRadius: '12px',
+                          cursor: 'pointer',
+                          fontSize: '12px',
+                          fontWeight: '600'
                         }}
-                      />
-                    </td>
-                    <td style={{ padding: '15px' }}>
-                      <span style={{
-                        backgroundColor: booking.paymentStatus === 'Paid' ? '#28a745' : '#dc3545',
-                        color: 'white',
-                        padding: '5px 10px',
-                        borderRadius: '12px',
-                        fontSize: '12px',
-                        fontWeight: '600'
-                      }}>{booking.paymentStatus}</span>
+                      >
+                        {customer.paymentStatus}
+                      </button>
                     </td>
                     <td style={{ padding: '15px' }}>
                       <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                        {booking.paymentStatus === 'Unpaid' && (
-                          <button onClick={() => handleMarkPaid(booking._id)} style={{
-                            backgroundColor: '#28a745',
+                        {customer.paymentStatus === 'Unpaid' && (
+                          <button
+                            onClick={() => handleSendReminder(customer._id)}
+                            style={{
+                              backgroundColor: '#ffc107',
+                              color: '#333',
+                              border: 'none',
+                              padding: '6px 12px',
+                              borderRadius: '4px',
+                              cursor: 'pointer',
+                              fontSize: '12px',
+                              fontWeight: '600'
+                            }}
+                          >
+                            Send Reminder
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleDeleteCustomer(customer._id)}
+                          style={{
+                            backgroundColor: '#6c757d',
                             color: 'white',
                             border: 'none',
                             padding: '6px 12px',
@@ -700,20 +906,10 @@ function PaymentManagement() {
                             cursor: 'pointer',
                             fontSize: '12px',
                             fontWeight: '600'
-                          }}>Mark as Paid</button>
-                        )}
-                        {booking.paymentStatus === 'Paid' && (
-                          <button onClick={() => handleMarkUnpaid(booking._id)} style={{
-                            backgroundColor: '#dc3545',
-                            color: 'white',
-                            border: 'none',
-                            padding: '6px 12px',
-                            borderRadius: '4px',
-                            cursor: 'pointer',
-                            fontSize: '12px',
-                            fontWeight: '600'
-                          }}>Mark as Unpaid</button>
-                        )}
+                          }}
+                        >
+                          Delete
+                        </button>
                       </div>
                     </td>
                   </tr>
