@@ -7,7 +7,9 @@ const {
   createMonthlyRecords,
   sendReminder,
   deleteCustomer,
-  updatePaymentAmount
+  updatePaymentAmount,
+  getPaymentStats,
+  getRevenueStats
 } = require('../controllers/paymentController');
 
 // Get all customers with their payment status
@@ -27,6 +29,12 @@ router.post('/payment/send-reminder', sendReminder);
 
 // Update payment amount
 router.post('/payment/update-amount', updatePaymentAmount);
+
+// Get payment statistics
+router.get('/payment/stats', getPaymentStats);
+
+// Get revenue statistics
+router.get('/payment/revenue-stats', getRevenueStats);
 
 // Delete customer
 router.delete('/customer/:customerId', deleteCustomer);

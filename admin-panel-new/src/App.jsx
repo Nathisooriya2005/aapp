@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api/bookings';
 const PAYMENT_API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api/payment';
@@ -83,6 +84,21 @@ const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ customerId, amount, month, year }),
     });
+    return response.json();
+  },
+  getPaymentStats: async (year) => {
+    const url = `${PAYMENT_API_URL}/payment/stats?year=${year || ''}`;
+    const response = await fetch(url);
+    return response.json();
+  },
+  getRevenueStats: async (month, year, startDate, endDate) => {
+    const params = new URLSearchParams();
+    if (month) params.append('month', month);
+    if (year) params.append('year', year);
+    if (startDate) params.append('startDate', startDate);
+    if (endDate) params.append('endDate', endDate);
+    const url = `${PAYMENT_API_URL}/payment/revenue-stats?${params.toString()}`;
+    const response = await fetch(url);
     return response.json();
   },
 };
@@ -246,14 +262,47 @@ function Dashboard() {
     approvedBookings: 0,
     totalPaymentsReceived: 0
   });
+  const [paymentStats, setPaymentStats] = useState({
+    totalPaid: 0,
+    totalUnpaid: 0,
+    totalAmount: 0,
+    monthlyStats: []
+  });
+  const [revenueStats, setRevenueStats] = useState({
+    totalRevenue: 0,
+    currentMonthRevenue: 0,
+    currentYearRevenue: 0,
+    allTimeRevenue: 0,
+    monthlyRevenue: [],
+    yearlyRevenue: [],
+    growthRate: 0
+  });
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
     fetchStats();
-    const interval = setInterval(fetchStats, 5000); // Auto-update every 5 seconds
+    fetchPaymentStats();
+    fetchRevenueStats();
+    const interval = setInterval(() => {
+      fetchStats();
+      fetchPaymentStats();
+      fetchRevenueStats();
+    }, 5000); // Auto-update every 5 seconds
     return () => clearInterval(interval);
-  }, []);
+  }, [selectedYear]);
+
+  // Listen for payment updates from payment section
+  useEffect(() => {
+    const handlePaymentUpdate = () => {
+      console.log('Payment update event received, refreshing stats');
+      fetchPaymentStats();
+      fetchRevenueStats();
+    };
+    window.addEventListener('paymentUpdated', handlePaymentUpdate);
+    return () => window.removeEventListener('paymentUpdated', handlePaymentUpdate);
+  }, [selectedYear]);
 
   const fetchStats = async () => {
     try {
@@ -271,6 +320,28 @@ function Dashboard() {
       console.error('Error fetching stats:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchPaymentStats = async () => {
+    try {
+      const response = await api.getPaymentStats(selectedYear);
+      if (response.success) {
+        setPaymentStats(response.stats);
+      }
+    } catch (error) {
+      console.error('Error fetching payment stats:', error);
+    }
+  };
+
+  const fetchRevenueStats = async () => {
+    try {
+      const response = await api.getRevenueStats(null, selectedYear);
+      if (response.success) {
+        setRevenueStats(response.stats);
+      }
+    } catch (error) {
+      console.error('Error fetching revenue stats:', error);
     }
   };
 
@@ -320,33 +391,46 @@ function Dashboard() {
       <main className="admin-container" style={{ padding: '40px' }}>
         <div className="admin-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
           <h2 style={{ margin: 0, color: '#333' }}>Dashboard Overview</h2>
-          <button
-            onClick={downloadToGoogleSheets}
-            className="admin-button"
-            style={{
-              padding: '10px 20px',
-              backgroundColor: '#28a745',
-              color: 'white',
-              border: 'none',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              fontWeight: '600',
-              fontSize: '14px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              boxShadow: '0 2px 8px rgba(40, 167, 69, 0.3)'
-            }}
-          >
-            📥 Download to Google Sheets
-          </button>
+          <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+            <select
+              value={selectedYear}
+              onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+              style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ddd', fontSize: '14px' }}
+            >
+              <option value={2024}>2024</option>
+              <option value={2025}>2025</option>
+              <option value={2026}>2026</option>
+            </select>
+            <button
+              onClick={downloadToGoogleSheets}
+              className="admin-button"
+              style={{
+                padding: '10px 20px',
+                backgroundColor: '#28a745',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontWeight: '600',
+                fontSize: '14px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                boxShadow: '0 2px 8px rgba(40, 167, 69, 0.3)'
+              }}
+            >
+              📥 Download to Google Sheets
+            </button>
+          </div>
         </div>
-        <div className="admin-stats" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px' }}>
+        
+        {/* Booking Stats */}
+        <div className="admin-stats" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px', marginBottom: '30px' }}>
           <StatCard title="Total Bookings" value={stats.totalBookings} color="#007bff" />
           <StatCard title="Pending Bookings" value={stats.pendingBookings} color="#ffc107" />
           <StatCard title="Approved Bookings" value={stats.approvedBookings} color="#28a745" />
-          <StatCard title="Total Payments Received" value={`₹${stats.totalPaymentsReceived}`} color="#17a2b8" />
         </div>
+
       </main>
     </div>
   );
@@ -406,6 +490,8 @@ function BookingManagement() {
       const response = await api.deleteBooking(id);
       if (response.success) {
         fetchBookings();
+        // Trigger dashboard refresh by dispatching a custom event
+        window.dispatchEvent(new CustomEvent('paymentUpdated'));
       }
     } catch (error) {
       console.error('Error deleting booking');
@@ -493,7 +579,6 @@ function BookingManagement() {
                   <th style={{ padding: '15px', textAlign: 'left', fontWeight: '600' }}>Date</th>
                   <th style={{ padding: '15px', textAlign: 'left', fontWeight: '600' }}>Time</th>
                   <th style={{ padding: '15px', textAlign: 'left', fontWeight: '600' }}>Status</th>
-                  <th style={{ padding: '15px', textAlign: 'left', fontWeight: '600' }}>Payment</th>
                   <th style={{ padding: '15px', textAlign: 'left', fontWeight: '600' }}>Actions</th>
                 </tr>
               </thead>
@@ -513,16 +598,6 @@ function BookingManagement() {
                         fontSize: '12px',
                         fontWeight: '600'
                       }}>{booking.status}</span>
-                    </td>
-                    <td style={{ padding: '15px' }}>
-                      <span style={{
-                        backgroundColor: booking.paymentStatus === 'Paid' ? '#28a745' : '#dc3545',
-                        color: 'white',
-                        padding: '5px 10px',
-                        borderRadius: '12px',
-                        fontSize: '12px',
-                        fontWeight: '600'
-                      }}>{booking.paymentStatus}</span>
                     </td>
                     <td style={{ padding: '15px' }}>
                       <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
@@ -609,6 +684,8 @@ function PaymentManagement() {
       const response = await api.updatePaymentStatus(customerId, newStatus, selectedMonth, selectedYear);
       if (response.success) {
         fetchCustomers();
+        // Trigger dashboard refresh by dispatching a custom event
+        window.dispatchEvent(new CustomEvent('paymentUpdated'));
       }
     } catch (error) {
       console.error('Error updating payment status');
@@ -620,6 +697,8 @@ function PaymentManagement() {
       const response = await api.updatePaymentAmount(customerId, amount, selectedMonth, selectedYear);
       if (response.success) {
         fetchCustomers();
+        // Trigger dashboard refresh by dispatching a custom event
+        window.dispatchEvent(new CustomEvent('paymentUpdated'));
       }
     } catch (error) {
       console.error('Error updating amount');
@@ -654,13 +733,51 @@ function PaymentManagement() {
 
   const handleCreateMonthlyRecords = async () => {
     try {
-      const response = await api.createMonthlyRecords(selectedMonth, selectedYear);
-      if (response.success) {
-        alert(response.message);
-        fetchCustomers();
+      console.log('Downloading monthly report for month:', selectedMonth, 'year:', selectedYear);
+      const response = await api.getCustomersWithPayments('', selectedMonth, selectedYear);
+      console.log('Response:', response);
+      
+      if (response.success && response.customers) {
+        const customers = response.customers;
+        const monthName = new Date(0, selectedMonth - 1).toLocaleString('default', { month: 'long' });
+        
+        // Calculate totals
+        const totalPaid = customers.filter(c => c.paymentStatus === 'Paid').reduce((sum, c) => sum + (c.amount || 500), 0);
+        const totalUnpaid = customers.filter(c => c.paymentStatus === 'Unpaid').reduce((sum, c) => sum + (c.amount || 500), 0);
+        const totalAmount = customers.reduce((sum, c) => sum + (c.amount || 500), 0);
+        
+        // Create CSV content
+        const headers = ['Customer Name', 'Phone', 'Sports', 'Amount', 'Payment Status'];
+        const rows = customers.map(c => [
+          c.name,
+          c.phone,
+          c.sports.join(', '),
+          c.amount || 500,
+          c.paymentStatus
+        ]);
+        
+        // Add totals row
+        rows.push([]);
+        rows.push(['', '', '', 'Total Paid', `₹${totalPaid}`]);
+        rows.push(['', '', '', 'Total Unpaid', `₹${totalUnpaid}`]);
+        rows.push(['', '', '', 'Total Amount', `₹${totalAmount}`]);
+        
+        const csvContent = [headers, ...rows].map(row => row.join(',')).join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv' });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `monthly_report_${monthName}_${selectedYear}.csv`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+        
+        alert(`Monthly report for ${monthName} ${selectedYear} downloaded successfully!`);
+      } else {
+        alert('Error: ' + (response.error || 'Unknown error'));
       }
     } catch (error) {
-      console.error('Error creating monthly records');
+      console.error('Error downloading monthly report:', error);
+      alert('Error downloading monthly report: ' + error.message);
     }
   };
 
@@ -670,6 +787,8 @@ function PaymentManagement() {
         const response = await api.deleteCustomer(customerId);
         if (response.success) {
           fetchCustomers();
+          // Trigger dashboard refresh by dispatching a custom event
+          window.dispatchEvent(new CustomEvent('paymentUpdated'));
         }
       } catch (error) {
         console.error('Error deleting customer');
@@ -731,7 +850,7 @@ function PaymentManagement() {
                 fontSize: '14px'
               }}
             >
-              Create Monthly Records
+              Download Monthly Report
             </button>
           </div>
         </div>
@@ -774,9 +893,11 @@ function PaymentManagement() {
                 onChange={(e) => setSelectedYear(parseInt(e.target.value))}
                 style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ddd', fontSize: '14px' }}
               >
-                <option value={2024}>2024</option>
-                <option value={2025}>2025</option>
                 <option value={2026}>2026</option>
+                <option value={2027}>2027</option>
+                <option value={2028}>2028</option>
+                <option value={2029}>2029</option>
+                <option value={2030}>2030</option>
               </select>
             </div>
             <div>
