@@ -20,7 +20,7 @@ const api = {
     });
     return response.json();
   },
-  updatePaymentStatus: async (id, paymentStatus) => {
+  updateBookingPaymentStatus: async (id, paymentStatus) => {
     const response = await fetch(`${API_BASE_URL}/${id}/payment`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
